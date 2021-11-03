@@ -1,0 +1,43 @@
+2021-11-03  Vasileios Barlakas <vasileios.barlakas@chalmers.se>
+	* DataInterfaces/Python/assp.py:
+	  * ssdb2assp:
+	  Added functionality for retrieving the asymmetry parameter in case
+	  of ARO ice and TRO liquid and ice hydrometeors.
+	  * assp_import_ssdb:
+	  Added functionality for retrieving the asymmetry parameter in case
+	  of ARO ice and TRO liquid and ice hydrometeors.
+	* DataInterfaces/Python/rttov.py:
+	  * get_assp:
+	  Added functionality for retrieving the asymmetry parameter. Yet,
+	  this is not returned.
+	* demo_ssp4arts.py:
+	Updated, due to extra output (asymmetry parameter) 
+2021-06-11  Vasileios Barlakas <vasileios.barlakas@chalmers.se>
+        * DataInterfaces/Python/rttov.py:
+          * get_assp:
+          Bugs fixed. Allos za and size interpolation
+        * DataInterfaces/Python/assp.py:
+          * assp_interp_za:
+          Fixed bug in ptype call
+          * assp_interp_size:
+          Multiple bug fixes (it was not functioning). Clarifications included
+          in the description.
+
+2021-02-19  Vasileios Barlakas <vasileios.barlakas@chalmers.se>
+
+        * DataInterfaces/Python/assp.py:
+        Updated. Now handles azimuthally randomly oriented liquid hydrometeors.
+        * DataInterfaces/Python/utils.py:
+          * ssdb_habits, ssdb_summary, ssdb_import_habit:
+          Updated. Now handle habits at hand with multiple orientations. Enables having
+          different orientation folders, i.e., 'AzimuthallyRandom' and 'TotallyRandom',
+          at the top folder of SSD.
+          * ssdb_summary_folder:
+          Added. Obtains the habit summary data for given habit folder.
+          * ssdb_display:
+          Fixed bug when both habit_id and orientation are None; reconstructed
+          according to Matlab interface. Fixed bug when a habit at hand exists in
+          multiple orientations.
+        * DataInterfaces/Python/old_versions/utils1.0.0.py:
+        Put a copy of the older file in old_versions folder.
+
