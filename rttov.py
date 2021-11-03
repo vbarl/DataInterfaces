@@ -81,6 +81,7 @@ def get_assp(# assp_import_ssdb parameters
   
   # Derive all SSP data (within D, f, T ranges) for one habit. Stored in 
   # ARTS-SSP type structure single scattering and meta data structures.
+  # It additionally provides the asymmetery parameter
   S,M,g = assp.assp_import_ssdb(habit_id, orientation,
                                 size_range=size_range, size_type=size_type,
                                 freq_range=freq_range, temp_range=temp_range,
