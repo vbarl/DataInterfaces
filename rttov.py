@@ -95,6 +95,8 @@ def get_assp(# assp_import_ssdb parameters
     all_f = np.array([])
     all_f,count = assp.flatappend_from_recursive_S(S,all_f,'f_grid',count=0)
     new_f_grid = np.unique( all_f )
+  else:
+    new_f_grid = f_grid
   # Since we only calculate SSP for x up to 10, we might first want to make
   # sure that the data covers the full requested f_grid (particularly when we
   # don't allow extrapolation).
