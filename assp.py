@@ -212,7 +212,6 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
   ----------
   TODOS:
       * Add functionality for oriented liquid hydrometeors
-      * Add functionality for totally randomly oriented hydrometeors (rttov.assp2g)
   """
   #####
   #FIXME: implement non-typhon version!

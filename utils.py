@@ -1261,12 +1261,12 @@ def ssdb_import_habit(habit_id, orientation,
   dveq    = dveq[ind]
   mass    = mass[ind]
   # Sort
-  #ind = size.argsort()
-  #size = size [ind]
-  #data_files = [data_files[i] for i in ind]
-  #dmax    = dmax[ind]
-  #dveq    = dveq[ind]
-  #mass    = mass[ind]
+  ind = size.argsort()
+  size = size [ind]
+  data_files = [data_files[i] for i in ind]
+  dmax    = dmax[ind]
+  dveq    = dveq[ind]
+  mass    = mass[ind]
 
   print( '%i scattering elements to process' %len(data_files) )
   for n in np.arange(len(data_files)):
