@@ -208,7 +208,7 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
     Array of ARTS-type single scattering data, one entry per particle size.
   M: list of objects (of ScatteringMetaData)
     Array of ARTS-type scattering meta data, one entry per particle size.
-  C: List containing the corresponding asymmetry parameter values.
+  g: List containing the corresponding asymmetry parameter values.
   ----------
   TODOS:
       * Add functionality for oriented liquid hydrometeors
