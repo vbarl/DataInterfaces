@@ -109,8 +109,10 @@ except ImportError:
 utils.ssdb_init( SSDBpath )
 
 # Import data, with some cropping in size and freq
-# S and M are the single scatttering data and metadata
-S,M  = assp.assp_import_ssdb( habID, orient, allow_nodata=False,
+# S and M are the single scatttering data and metadata, while g
+#   denotes the asymmetry parameter. Only S and M are the input
+#   for ARTS
+S,M,g = assp.assp_import_ssdb( habID, orient, allow_nodata=False,
                               size_range=[minD, maxD], size_type=sizeparam,
                               freq_range=[fmin, fmax],
                               temp_range=[tmin, tmax] )

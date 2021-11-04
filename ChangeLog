@@ -1,5 +1,8 @@
 2021-11-03  Vasileios Barlakas <vasileios.barlakas@chalmers.se>
 	* DataInterfaces/Python/assp.py:
+	  * calc_g4aro:
+	  A function deriving the asymmetry parameter for oriented ice
+	  hydrometeors
 	  * ssdb2assp:
 	  Added functionality for retrieving the asymmetry parameter in case
 	  of ARO ice and TRO liquid and ice hydrometeors.

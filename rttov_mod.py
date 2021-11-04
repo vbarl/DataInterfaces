@@ -47,6 +47,8 @@ def get_assp(# assp_import_ssdb parameters
   #2021-06-11 Vasileios Barlakas: Bug fixed; allows za interpolation
   #				 Bug fixed; allows size interpolation
   #                               Clarifications included in the function description
+  #2021-11-03 Vasileios Barlakas: Added functionality for deriving the asymmetry
+  #                               parameter following M. Brath's draft.
   """Get data (in ARTS SSD and SMD format) over f, T, D for one habit.
   
   Imports single scattering data within given frequency, temperature, and size
@@ -80,10 +82,10 @@ def get_assp(# assp_import_ssdb parameters
   # Derive all SSP data (within D, f, T ranges) for one habit. Stored in 
   # ARTS-SSP type structure single scattering and meta data structures.
   # It additionally provides the asymmetery parameter
-  S,M = assp.assp_import_ssdb(habit_id, orientation,
-                              size_range=size_range, size_type=size_type,
-                              freq_range=freq_range, temp_range=temp_range,
-                              allow_nodata=allow_nodata)
+  S,M,g = assp.assp_import_ssdb(habit_id, orientation,
+                                size_range=size_range, size_type=size_type,
+                                freq_range=freq_range, temp_range=temp_range,
+                                allow_nodata=allow_nodata)
   
   # Interpolate the SSP data to a common T-grid
   assp.assp_interp_t(S, new_t_grid=t_grid,

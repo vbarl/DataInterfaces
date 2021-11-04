@@ -68,7 +68,10 @@ def assp_import_ssdb(habit_id, orientation,
   #2017-03-20 Jana Mendrok
   #2017-10-16 Jana Mendrok: Added functionality for azimuthally random orientation
   #                         following M.Brath's draft.
+  #2021-11-03 Vasileios Barlakas: Added functionality for retrieving the asymmetry
+  #                               parameter (extra output)
   """Reads data from SSDB database for one habit and compiles it into ARTS format data.
+     It additionally provides the asymmetry parameter as an extra output.
   
   Default is to read all data for a specified habit and orientation
   combination, but the reading can be restricted in terms of size, frequency
@@ -116,6 +119,7 @@ def assp_import_ssdb(habit_id, orientation,
     Array of ARTS-type single scattering data, one entry per particle size.
   M: list of objects (of ScatteringMetaData)
     Array of ARTS-type scattering meta data, one entry per particle size.
+  G: List containing the corresponding asymmetry parameter values.
   ----------
   """
   # import data
@@ -134,6 +138,7 @@ def assp_import_ssdb(habit_id, orientation,
   # Loop particle sizes and convert data
   S = []
   M = []
+  G = []
   print( 'Converting extracted SSDB data to ARTS format data.' )
   print( '%i scattering elements to process' %len(data) )
   for i in np.arange(len(data)):
@@ -141,10 +146,11 @@ def assp_import_ssdb(habit_id, orientation,
       print( '  processing element %i' %(i+1) )
     try:
       if (data[i]['SSD'].size>0):
-        S1,M1 = ssdb2assp( data[i]['SSD'], data[i]['freq'],
-                           data[i]['temp'], data[i]['nodata'] )
+        S1,M1,G1 = ssdb2assp( data[i]['SSD'], data[i]['freq'],
+                              data[i]['temp'], data[i]['nodata'] )
         S.append( S1 )
         M.append( M1 )
+        G.append( G1 )
       else:
         try:
           print('For this particle (%s=%.0f um), no SSD available -'
@@ -159,14 +165,17 @@ def assp_import_ssdb(habit_id, orientation,
               ' skipping this particle (ie. no equivalent entry in S & M).\n'
               %(i))
 
-  return S, M
+  return S, M, G
 
 
 def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
   #2017-03-22 Jana Mendrok
   #2017-11-28 Robin Ekelund: Fixed sph importing error
   #2021-02-19 Vasileios Barlakas: Extended towards liquid oriented hydrometeors
-  """Converts internal SSD to ARTS single scattering properties. 
+  #2021-11-03 Vasileios Barlakas: Added functionality for deriving the asymmetry
+  #                               parameter following M. Brath's draft.
+  """Converts internal SSD to ARTS single scattering properties. It additionally
+     provides the asymmetry parameter as an extra output.
 
   The input SSD data should be imported through utils.ssdb_import_data using
   the grid_sort option.
@@ -199,6 +208,7 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
     Array of ARTS-type single scattering data, one entry per particle size.
   M: list of objects (of ScatteringMetaData)
     Array of ARTS-type scattering meta data, one entry per particle size.
+  g: List containing the corresponding asymmetry parameter values.
   ----------
   TODOS:
       * Add functionality for oriented liquid hydrometeors
@@ -206,6 +216,8 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
   #####
   #FIXME: implement non-typhon version!
   #####
+  
+  import rttov
   
   # Basic sanity check of input
   if not( SSD.shape[0]==freq.size ):
@@ -343,6 +355,7 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
       S.pha_mat_data = np.empty((nf,nt,nza,1,1,1,6))*np.NAN
       S.ext_mat_data = np.empty((nf,nt,1,1,1))*np.NAN
       S.abs_vec_data = np.empty((nf,nt,1,1,1))*np.NAN
+      g              = np.empty((nf,nt))*np.NAN
       for f in np.arange(freq.size):
         for t in np.arange(temp.size):
           if (not nodata[f,t]):
@@ -377,6 +390,7 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
 
             S.ext_mat_data[f,t,...] = SSD[f,t]['SingleScatteringData']['extMat_data']['data']
             S.abs_vec_data[f,t,...] = SSD[f,t]['SingleScatteringData']['absVec_data']['data']
+            g[f,t]                  = rttov.assp2g(S)
     #####
     # azimuthally random orientation
     #####
@@ -459,6 +473,8 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
           #    one for za, one for aa. However, that requires more interpolations
           #    (and rotations?) in sph.
           nza = len(SSD[0,0]['SingleScatteringData']['za_inc']['data'])
+          g    = np.empty((nf,nt,len(S.za_grid)))*np.NAN
+          g_i  = np.empty((len(S.za_grid)))*np.NAN
           got_grid=False
           for f in np.arange(freq.size):
             for t in np.arange(temp.size):
@@ -479,6 +495,36 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
                   sph.create_regular_representation(phamat_sph, lmax,
                                                     grid_size_theta=nza, gridtype='regular')
                   
+                ###############################################################                                    
+                # Settings for asymetry parameter
+                  
+                ph_real     = phamat_real[0,0,:,:]
+                ph_imag     = phamat_imag[0,0,:,:]
+                ph_sph      = np.complex128(ph_real+1j*ph_imag)
+                
+                theta_inc = S.za_grid
+                grid_size_theta=90
+                
+                for i in range(len(theta_inc)):
+                  # get truncation level of spherical harmonics series
+                  max_ntrunc = sph.get_lmax(ph_sph[i,:])
+                  if max_ntrunc % 2 ==0:
+                      min_grid_size=2*lmax+2
+                  else:
+                      min_grid_size=2*(lmax+1)  
+                  if min_grid_size<grid_size_theta:
+                      min_grid_size=grid_size_theta
+                  elif grid_size_theta<min_grid_size:
+                      grid_size_theta=min_grid_size
+                  if min_grid_size % 2 == 1:
+                      min_grid_size=min_grid_size+1
+                  # set up spherical harmonics object
+                  sph_object = sph.Spharmt(min_grid_size*2,min_grid_size,max_ntrunc,1,gridtype='regular')
+                  # rotate spherical harmonics series, so that forward direction points toward northpole
+                  # and backward direction towards southpole.
+                  phase_sph_rot = sph_object.yrotate(ph_sph[i,:], -theta_inc[i]*np.pi/180)
+                  g_i[i]        = np.real(phase_sph_rot[1]/phase_sph_rot[0]/np.sqrt(4*np.pi)*2)
+                ###############################################################
                 assert( (S.za_grid==theta_s).all() ), \
                   'Spherical harmonics output polar grid at f=%.1fGHz and T=%.1fK' + \
                   ' inconsistent with global za_grid.' %(freq[f]*1e-9,temp[t])
@@ -496,6 +542,7 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
                 S.ext_mat_data[f,t,...] = np.transpose(ext_mat,(2,1,0))
                 S.abs_vec_data[f,t,...] = np.transpose(abs_vec,(2,1,0))
                 S.pha_mat_data[f,t,...] = np.transpose(phase_matrix_reg,(3,4,2,1,0))
+                g[f,t,...]              = np.array(g_i) # VB
       elif phase=='liquid':
           S.aa_grid = np.array([])
           S.za_grid = np.array([])
@@ -560,6 +607,7 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
           S.ext_mat_data = np.empty((nf,nt,nza,1,3))*np.NAN
           S.abs_vec_data = np.empty((nf,nt,nza,1,2))*np.NAN
           S.pha_mat_data = np.empty((nf,nt,nza,naa,nza,1,npha))*np.NAN
+          g              = np.empty((nf,nt,len(S.za_grid)))*np.NAN
           for f in np.arange(freq.size):
             for t in np.arange(temp.size):
               if (not nodata[f,t]):
@@ -598,7 +646,7 @@ def ssdb2assp(SSD, freq, temp, nodata,interpm='linear'):
           'Returning default-filled SingleScatteringData and ScatteringMetaData'
           ' (grids partly empty, data fields all empty).')
 
-  return S, M
+  return S, M, g
 
 
 def assp_interp_t(S,new_t_grid=None,interpm='pchip',allow_extrap=False,min_tpoints=3):
@@ -1382,133 +1430,6 @@ def assp_create_mix(S0,M0,W):
 
   return S,M
 
-def calc_g4aro(habit_id, orientation,
-                     habit_folder=None,
-                     size_range=None, size_type='dveq',
-                     freq_range=None, temp_range=None,
-                     allow_nodata=False):
-  #2021-11-03 Vasileios Barlakas: Derives the asymmetry parameter 
-  #                               for ARO ice hydrometeors following
-  #                               M. Brath's draft.                          
-  """Reads data from SSDB database for one habit (oriented ice) and derives
-  the asymmetry parameter g.
-  
-  The reading can be restricted in terms of size, frequency
-  and temperature. For frequency and temperature, data are selected as: 
-    limit1 <= data <= limit2
-  while for frequency data at the lower limit is excluded:
-    limit1 < data <= limit2.
-
-  Default is to issue an error as soon as data are missing for a frequency
-  and temperature combination. Allow missing data by setting the optional
-  argument *allow_nodata* to true. Note that sets of frequencies and
-  temperatures are allowed to differ between sizes, independently of how
-  *allow_nodata* is set. For example, for one size there can be a single
-  temperature, while other sizes have a temperature grid with several
-  elements.
-  
-  Parameters
-  ----------
-  habit_id: int
-    Habit id number.
-  orientation: str
-    Descriptor of orientation to explore for the chosen habit.
-  habit_folder: str
-    Full path to a habit folder.
-    Temporary add for testing az.random not-yet-in-DB-structure. If used,
-    provide a dummy habit_id.
-  allow_nodata: bool
-    See above. Default is false.
-  size_range: 2-element list
-    Particle size limits [unit: m]. Ignore data outside these limits. If not
-    given, no limits are applied, i.e. all available data is considered.
-  size_type: str
-    Quantity used for size cropping. Allowed options are 'dveq' (default),
-    'dmax' and 'mass'.
-  freq_range: 2-element list
-    Frequency limits [unit: Hz]. Ignore data outside these limits. If not
-    given, no limits are applied, i.e. all available data is considered.
-  temp range: 2-element list
-    Temperature limits [unit: K]. Ignore data outside these limits. If not
-    given, no limits are applied, i.e. all available data is considered.
-
-  Returns
-  -------
-  g: numpy array
-    Array of asymmetry parameter values
-  """
-  try:
-    from . import sph
-  except ImportError:
-    try: #relative import does not work from scripts in the package folder
-      import sph
-      # from Python import sph
-    except ImportError:
-      raise Exception( 'Module *sph* of database interface required but not found.' )
-  except Exception as e:
-      print('Module *assp* requires module *sph*, but failed to import it:\n%s' %str(e))
-
-  if (habit_folder is None):
-    data = utils.ssdb_import_habit( habit_id, orientation,
-                                  allow_nodata=allow_nodata,
-                                  size_range=size_range, size_type=size_type,
-                                  freq_range=freq_range, temp_range=temp_range )
-  else:
-    data = utils.ssdb_import_habit( habit_id, orientation,
-                                    habit_folder=habit_folder,
-                                  allow_nodata=allow_nodata,
-                                  size_range=size_range, size_type=size_type,
-                                  freq_range=freq_range, temp_range=temp_range )
-
-
-  grid_size_theta=90
-
-  nf = data[0]['freq'].size
-  nt = data[0]['temp'].size
-  theta_inc   = data[0]['SSD'][0,0]['SingleScatteringData']['za_inc']['data']
-
-  g    = np.empty((len(data),nf,nt,len(theta_inc)))*np.NAN
-  g_i  = np.empty((len(theta_inc)))*np.NAN
-  
-  
-  # Loop particle sizes and retrive data
-  for isize in np.arange(len(data)):     # size loop
-    
-    try:
-     ssd = data[isize]['SSD']
-     for f in np.arange(nf):              # freq loop
-      for t in np.arange(nt):             # temp loop
-        phamat_real = ssd[f,t]['SingleScatteringData']['phaMat_data_real']['data'][0,0,:,:]
-        phamat_imag = ssd[f,t]['SingleScatteringData']['phaMat_data_imag']['data'][0,0,:,:]
-      
-        ph_sph      = np.complex128(phamat_real+1j*phamat_imag)
-      
-        for i in range(len(theta_inc)):
-          # get truncation level of spherical harmonics series
-          max_ntrunc = sph.get_lmax(ph_sph[i,:])
-          if max_ntrunc % 2 ==0:
-             min_grid_size=2*max_ntrunc+2
-          else:
-             min_grid_size=2*(max_ntrunc+1) 
-          if min_grid_size<grid_size_theta:
-             min_grid_size=grid_size_theta 
-          elif grid_size_theta<min_grid_size:
-             grid_size_theta=min_grid_size       
-          if min_grid_size % 2 == 1:
-             min_grid_size=min_grid_size+1
-          # set up spherical harmonics object
-          sph_object = sph.Spharmt(min_grid_size*2,min_grid_size,max_ntrunc,1,gridtype='regular')
-          
-          # rotate spherical harmonics series, so that forward direction points toward northpole
-          # and backward direction towards southpole.
-          phase_sph_rot = sph_object.yrotate(ph_sph[i,:], -theta_inc[i]*np.pi/180)
-          g_i[i]        = np.real(phase_sph_rot[1]/phase_sph_rot[0]/np.sqrt(4*np.pi)*2)
-        g[isize,f,t,...]              = np.array(g_i) 
-    except:
-     print('For particle #%i, no data available -'
-              ' skipping this particle (ie. no equivalent entry in S & M).\n'
-              %(isize))
-  return g
 
 def assp_bulkprops(S, M, size_unit, psd, *args):
   #2017-10-30 Jana Mendrok: ported from Matlab interface.
